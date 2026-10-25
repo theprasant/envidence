@@ -1,343 +1,343 @@
 # Envidence
 
-> **It worked yesterday. Envidence knows what changed.**
->
-> Git protects your code. Envidence protects the machine.
+[![npm version](https://img.shields.io/npm/v/envidence?color=0f766e)](https://www.npmjs.com/package/envidence)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D24-0f766e)](https://nodejs.org)
+[![License](https://img.shields.io/badge/license-MIT-0f766e)](https://github.com/theprasant/envidence/blob/main/LICENSE)
 
-Envidence is a local-first **black box for your development machine**. It snapshots the
-layer Git ignores — PATH, environment variables, global packages, runtimes, services,
-startup entries, listening ports, shell profiles, editor configs, and project metadata —
-records what a command changed, ranks the most plausible causes of a failure, and builds a
-reviewable, reversible remediation plan.
+Git tells you what changed in your code. Envidence tells you what changed on the machine around it.
 
-Everything stays on the machine. There is no cloud, no telemetry, no account, and no LLM.
-Reports are self-contained HTML files you can attach to an issue.
+Envidence is a local CLI for the failures Git cannot explain. It snapshots the parts of a development environment that Git does not track, records what changed while a command ran, ranks the likely causes of a failure, and produces an evidence report and a reversible plan.
 
-```text
-                  snapshots + runs + cases
-                           │
-   evd snap ───────────────┤
-   evd watch -- npm test ──┤──> ranked evidence ──> HTML case file
-   evd why ────────────────┤                         │
-   evd rollback --dry-run ─┘                         └──> reversible plan
-```
+It is useful when:
 
-## Status
+- `npm test` passed yesterday and fails today, but your source tree has not changed.
+- A command works in one shell and fails in another.
+- A global package, runtime, service, or PATH entry changed.
+- You need to attach useful evidence to a bug report without sending your whole machine state.
 
-Envidence **v1.0.0** is the first public npm release. It is a local-first tool for
-Windows 11, with a basic POSIX fallback. The CLI, collectors, SQLite store, diff/ranking
-engine, dashboard, report, rollback engine, deterministic demo, and test suite are
-implemented. See [Limitations](docs/LIMITATIONS.md) for the honest edges, including the
-fact that real-machine rollback apply/undo is not exercised by the automated test suite.
+Everything stays on your machine. There is no account, cloud service, telemetry, or LLM.
 
-The OpenCode plugin/agent integration was intentionally **not** built. The complete
-product works without an editor integration.
+[Documentation](https://envidence.prasant.dev/docs/) | [npm](https://www.npmjs.com/package/envidence) | [GitHub](https://github.com/theprasant/envidence)
+
+## Requirements
+
+- Node.js 24 or newer
+- Windows 10 or 11 for the full collector set
+- macOS and Linux use a smaller POSIX collector set
 
 ## Install
 
-Requirements:
-
-- Node.js **24 or newer** (the store uses `node:sqlite`)
-- npm
-- Windows 10/11 for the full collector set; macOS/Linux run a smaller subset
-
-Install the CLI globally:
-
-```powershell
+```sh
 npm install -g envidence
+```
+
+This installs two equivalent commands:
+
+```sh
 envidence --help
-# short alias
 evd --help
 ```
 
-Or run it without a global install:
+You can also run it without a global install:
 
-```powershell
+```sh
 npx envidence --help
-npx envidence demo
 ```
-
-The npm package includes the compiled CLI, server, and single-file dashboard. It does not
-need a build step after installation. It contains no telemetry, makes no runtime network
-calls, and has no account or cloud dependency.
 
 ## Quick start
 
-With the installed package, run the deterministic demo in an isolated project-local store:
-
-```powershell
-$env:ENVIDENCE_HOME = "./.envidence"
-evd demo
-evd demo --report --out .envidence/demo-report.html
-evd demo --ui
-```
-
-On macOS/Linux:
+Run Envidence from the project you want to investigate.
 
 ```sh
-export ENVIDENCE_HOME="./.envidence"
-evd demo
+cd /path/to/project
+
+# Create the local store and mark the first snapshot as the known-good baseline.
+evd init --label "Known good"
+
+# Run the command you want to observe.
+evd watch -- npm test
 ```
 
-### From this repository
+`evd watch` records the machine state before and after the command. If the command fails, it opens a case and prints the strongest changes it found. If it passes, the run is recorded and no case is opened. The command's exit code is preserved.
 
-For development, build from source in PowerShell:
-
-```powershell
-npm install
-npm run build
-
-# Keep all evidence inside the project while trying it out.
-$env:ENVIDENCE_HOME = "./.envidence"
-
-.\bin\evd.cmd demo
-```
-
-On macOS/Linux:
+If the command failed, review the latest case:
 
 ```sh
-npm install
-npm run build
-export ENVIDENCE_HOME="./.envidence"
-./bin/evd demo
+evd why
 ```
 
-`npm run build` compiles the CLI/server and builds the single-file dashboard. If you only
-need the CLI, `npm run build:cli` is enough; `npm run build:ui` rebuilds the dashboard.
+List cases and inspect one:
 
-Expected demo result:
+```sh
+evd case list
+evd case show CASE-...
+```
 
-- Store: `.envidence/demo` (isolated fixture store)
-- Case: `CASE-20261023-7F3A` — *npm test failed after TypeScript prerelease install*
-- Top finding: **Global npm package typescript changed** — score **72/100**, high confidence
-- Second finding: **PATH changed** — score **38/100**, low confidence
-- Three snapshots, two runs, one baseline
-- No real machine state is read while seeding the demo
+When a command fails, a common workflow looks like this:
 
-The dashboard prints a `http://127.0.0.1:<port>/#token=...` link. The URL fragment contains
-a per-session token; the server binds only to loopback. `Ctrl+C` stops it.
+```sh
+# Work on the problem, then run the failing command again.
+evd watch -- npm test
 
-See [docs/DEMO.md](docs/DEMO.md) for the full transcript and reset instructions.
+# Read the ranked leads.
+evd why
 
-## Everyday use
+# Create a report you can attach to an issue.
+evd report --case CASE-... --out envidence-case.html
 
-Use a project-local store while evaluating:
+# Preview a fix without changing anything.
+evd rollback --case CASE-... --dry-run
+```
+
+If the failure is already happening and you do not have a known-good snapshot, take a snapshot now and use `evd watch` for future commands. Envidence cannot reconstruct a machine state it never recorded.
+
+### Try the demo
+
+If you want to see the whole flow without reading your machine, run the built-in demo:
+
+```sh
+evd demo --reset
+```
+
+The demo uses isolated fixture data in `<store>/demo`. It does not scan live system state.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `evd init` | Create the store and take the first full snapshot |
+| `evd snap` | Take a snapshot without running a command |
+| `evd watch -- <command>` | Snapshot, run a command, snapshot again, and explain failures |
+| `evd why` | Rank the likely causes of a run or case |
+| `evd diff` | Compare two snapshots |
+| `evd log` | List recent snapshots, runs, or cases |
+| `evd case list` | List investigation cases |
+| `evd case show <id>` | Show a case, its findings, and its changes |
+| `evd case close <id>` | Close a case with a summary |
+| `evd baseline set` | Mark a snapshot as the known-good reference |
+| `evd baseline show` | Show the active baseline and current drift |
+| `evd fingerprint` | Print a stable fingerprint of tracked machine state |
+| `evd report` | Write a self-contained HTML report |
+| `evd rollback` | Plan or apply a reversal of machine changes |
+| `evd undo` | Undo a previously applied rollback |
+| `evd ui` | Open the local dashboard |
+| `evd doctor` | Check store health, baselines, warnings, and collectors |
+| `evd config` | Read or update configuration |
+| `evd prune` | Remove old unprotected snapshots |
+| `evd demo` | Open the isolated deterministic demo |
+
+Run `evd --help` or `evd <command> --help` for every option. Global options are `--store <path>`, `--json`, `--quiet`, and `--verbose`.
+
+### `evd init`
+
+```sh
+evd init
+evd init --label "Clean install"
+evd init --fast
+```
+
+`init` creates the local store, takes a full snapshot, and marks it as the active baseline unless you pass `--no-baseline`. Use `--fast` for a quicker snapshot with fewer collectors.
+
+### `evd snap`
+
+```sh
+evd snap
+evd snap --fast --label "Before upgrade"
+evd snap --full --pin
+```
+
+A snapshot records the machine at one point in time. Pinned snapshots are protected from pruning.
+
+### `evd watch`
+
+```sh
+evd watch -- npm test
+evd watch --full -- npm run build
+evd watch --timeout 300 -- npm run test:e2e
+evd watch --no-why -- npm install
+```
+
+`watch` takes a fast snapshot by default, runs the command, takes another snapshot, and compares them. Add `--full` when the failure may involve a collector that is not in the fast profile.
+
+`--capture-output` keeps more of the command's stdout and stderr. The default output tails are bounded, and recognized secrets are redacted in reports. If a command prints secrets, do not capture its output.
+
+### `evd why`
+
+```sh
+evd why
+evd why --case CASE-...
+evd why --run RUN-...
+evd why --since 2h
+evd why --all
+```
+
+When `watch` records a run, it selects a reference in this order: the last successful run of the same command in the same project, the active baseline, then the most recent snapshot before the command window. If none is available, it uses the pre-command snapshot. `--since` overrides the reference. `--all` includes volatile changes such as free disk space and short-lived ports.
+
+Findings are ranked leads, not proof. A high score means a change is worth checking first, not that it caused the failure.
+
+### `evd diff`
+
+```sh
+evd diff
+evd diff SNAP-1 SNAP-2
+evd diff --category packages,path
+evd diff --search typescript
+```
+
+Diffs are grouped by category and distinguish changes observed during a command window from changes that were already present.
+
+### `evd baseline`
+
+```sh
+evd baseline set latest --label "Known good"
+evd baseline show
+evd baseline list
+evd baseline accept
+```
+
+A baseline is the reference Envidence uses when deciding whether a change is new. Set one after a known-good test run or a clean install.
+
+### `evd report`
+
+```sh
+evd report --case CASE-... --out envidence-case.html
+evd report --case CASE-... --redact strict --out envidence-case.html
+evd report --case CASE-... --redact none --open
+```
+
+The report is one offline HTML file with inline styles, scripts, and data. It has no remote assets.
+
+| Redaction | Removes |
+|---|---|
+| `standard` (default) | Home directory, project path prefixes, hostname, username, and public-looking IPs |
+| `strict` | Also removes project identifiers, branch and commit details, and service names |
+| `none` | Keeps local paths and identifiers. Use only for local review |
+
+Even with `none`, values marked as secrets and recognized token shapes are redacted. Review any report before sharing it.
+
+### `evd rollback`
+
+```sh
+# Preview the plan and write a script. This changes nothing.
+evd rollback --case CASE-... --dry-run --script rollback.ps1
+
+# Apply the plan after reviewing it.
+evd rollback --case CASE-... --apply
+
+# Reverse the last applied rollback.
+evd undo
+```
+
+Rollback can restore environment values, PATH order, selected global packages, VS Code extensions, config files, service state, startup entries, and scheduled-task state. Unsupported changes become manual steps.
+
+Before applying a rollback, Envidence checks that the machine still matches the plan, takes a pinned safety snapshot, and asks for confirmation. Use `evd rollback --dry-run` first.
+
+Real rollback apply and undo have not been validated on a real machine for this release. Test on a disposable machine before relying on them for important state.
+
+### `evd ui`
+
+```sh
+evd ui
+evd ui --port 4317
+evd ui --no-open
+```
+
+The dashboard starts a local server on `127.0.0.1`, prints a session URL, and protects API requests with a per-session token. It is for local review only. Do not expose it through a proxy or port forward.
+
+The dashboard previews and simulates rollback plans and has no apply button. Apply from the CLI for the supported flow.
+
+### `evd doctor` and `evd prune`
+
+```sh
+evd doctor
+evd config list
+evd config set profile fast
+
+evd prune
+evd prune --keep 30 --days 14 --yes
+```
+
+`prune` is a dry run until you pass `--yes`. Pinned snapshots, baselines, snapshots used by runs or cases, and safety snapshots are protected.
+
+## What Envidence records
+
+A full snapshot can include:
+
+- OS, architecture, hostname, username, timezone, uptime, and clock
+- User, machine, and effective environment variables, including secret-like values as hashes
+- PATH order, duplicates, and missing directories
+- Resolved tools and versions such as Node, npm, Python, Rust, .NET, Go, Java, Git, and PowerShell
+- Global packages from npm, pip, cargo, dotnet, and VS Code
+- Services, startup entries, scheduled tasks, installed programs, and hotfixes
+- Listening ports and their owning processes, proxies, DNS, and the hosts file
+- Selected config files such as Git, npm, Cargo, shell profiles, VS Code settings, and project tool configs
+- Project manifests, lockfile hashes, scripts, dependency names, environment key names, likely ports, Compose services, and Git branch and commit information
+
+Envidence does not collect personal documents, browser history or cookies, SSH keys, cloud credentials, keychains, or source file contents. Project scanning skips dependency, build, and vendor directories.
+
+See the [privacy guide](https://envidence.prasant.dev/docs/privacy/) for the full data inventory.
+
+## How it works
+
+1. **Snapshot.** Envidence records normalized machine facts in a local store. Full state is kept in content-addressed blobs, and SQLite holds the searchable index.
+2. **Observe.** `evd watch` compares the state before and after a command. A change can be labeled `pre-existing` or `observed-during` the command window.
+3. **Rank.** Rules combine change type, project relevance, recency, stderr signals, and historical correlation. The result is a ranked list of hypotheses.
+4. **Review.** The case file, dashboard, and report show the evidence behind each lead.
+5. **Plan.** The rollback planner produces typed actions and manual steps. A dry run is the default.
+
+## Local store
+
+The default store location is:
+
+- Windows: `%LOCALAPPDATA%\Envidence`
+- macOS and Linux: `$XDG_DATA_HOME/envidence` or `~/.local/share/envidence`
+
+You can keep evidence inside a project:
+
+```sh
+ENVIDENCE_HOME=./.envidence evd init
+```
+
+On PowerShell:
 
 ```powershell
 $env:ENVIDENCE_HOME = "./.envidence"
-
-# Initialize and capture the first full snapshot.
-.\bin\evd.cmd init
-
-# Mark a known-good reference.
-.\bin\evd.cmd baseline set latest --label "Known good"
-
-# Wrap a command. Exit code is preserved exactly.
-.\bin\evd.cmd watch -- npm test
-
-# Explain the newest case, a specific run, or a command.
-.\bin\evd.cmd why
-.\bin\evd.cmd why --run RUN-...
-.\bin\evd.cmd why --case CASE-...
-.\bin\evd.cmd why --since 2h
-
-# Inspect and close cases.
-.\bin\evd.cmd case list
-.\bin\evd.cmd case show CASE-...
-.\bin\evd.cmd case close CASE-... --summary "Fixed by restoring TypeScript"
-
-# Share a redacted, offline case file.
-.\bin\evd.cmd report --case CASE-... --out case.html --open
-
-# Preview remediation. This changes nothing.
-.\bin\evd.cmd rollback --case CASE-... --dry-run --script rollback.ps1
+evd init
 ```
 
-From an npm install, use `evd` / `envidence`, or `npx envidence` without a global install.
-From a checkout, the launchers in `bin/` are the supported local entry points, and
-`node dist/cli.js ...` works too. For production, set `ENVIDENCE_HOME` to a directory you
-control or use the default platform data directory
-(`%LOCALAPPDATA%\Envidence` on Windows, `$XDG_DATA_HOME/envidence` elsewhere).
+Or use a one-off store path:
 
-### Command reference
-
-| Command | Purpose |
-|---|---|
-| `evd init` | Create the store/config and take a first full snapshot |
-| `evd snap [--fast\|--full] [--label] [--pin]` | Capture machine state without running a command |
-| `evd watch -- <command>` | Snapshot → run → snapshot; preserve the exit code; explain failures |
-| `evd why [target]` | Rank hypotheses for a run or case; `--fail-on-findings` for CI |
-| `evd diff [a] [b]` | Categorized snapshot diff, including PATH ordering |
-| `evd log` | Recent snapshots, runs, or cases |
-| `evd case list/show/close` | Case lifecycle |
-| `evd baseline set/accept/show/list` | Known-good references and drift |
-| `evd fingerprint` | Stable digest of tracked machine facts |
-| `evd report --case <id>` | Self-contained HTML case file |
-| `evd rollback --case/--run/--to` | Dry-run plan, apply, or write a script |
-| `evd undo [rollback]` | Invert the last applied rollback |
-| `evd ui [--port] [--demo]` | Token-protected local dashboard |
-| `evd demo [--reset] [--ui] [--report]` | Deterministic story and isolated store |
-| `evd doctor` | Store health, baselines, warnings, collector configuration |
-| `evd config get/set/path` | Read or update configuration |
-| `evd prune` | Remove old unprotected snapshots, dry-run by default |
-
-Run `.\bin\evd.cmd --help` or `.\bin\evd.cmd <command> --help` for every option. Global
-flags: `--store <path>`, `--json`, `--quiet`, `--verbose`.
-
-`watch` uses the fast profile by default. Add `--full` when you want the full collector
-set on both sides of the command. `--no-why` records the run without opening a case.
-Captured stdout/stderr tails are bounded and redacted; `--capture-output` keeps more of
-them for the case file.
-
-## What it collects
-
-Envidence uses read-only system queries. A full snapshot can include:
-
-- host OS/build/architecture, hostname, username, timezone, uptime, clock
-- user, machine, and effective environment values; PATH order, duplicates, missing dirs
-- resolved tools and versions (Node, npm, Python, Rust, .NET, Go, and more)
-- global packages from npm, pip, cargo, dotnet, VS Code, and optionally winget/choco/scoop
-- services, startup entries, scheduled tasks, installed programs, hotfixes
-- listening ports and owning processes, proxy/hosts/DNS state
-- selected config files (Git, npm, Cargo, shell profiles, VS Code settings, hosts, and
-  project-local tool configs), with secret-like values redacted and hashes recorded
-- shell profile hashes, time/NTP, disks, WSL distributions
-- bounded project metadata: manifests, lockfiles, scripts, dependencies, env key names,
-  env references, likely ports, Compose services, and Git branch/commit/dirty counts
-
-It does **not** read personal documents, browser history or cookies, SSH/GPG/AWS/Azure/
-Kubernetes credentials, or keychains. Project scanning is bounded and skips
-`node_modules`, `.git`, `.envidence`, build output, and other vendor directories. See
-[Privacy](docs/PRIVACY.md) for the exact contract.
-
-## How the evidence works
-
-1. **Snapshot** — normalized facts, not opaque restore points. Full state is gzipped in a
-   content-addressed blob store; SQLite holds metadata and indexes.
-2. **Attribute** — `watch` compares the pre-window and post-window snapshots and labels a
-   difference `observed-during` the command window, or `pre-existing` relative to the
-   last known-good reference. Sequence-aware PATH diffing reports moves, not fake
-   add/remove pairs.
-3. **Rank** — rules combine base weight, project relevance, recency, stderr signals, and
-   historical correlation (Laplace-smoothed, gated by sample count). Scores are hypotheses,
-   not verdicts. A confident “nothing in the machine layer changed” is a valid result.
-4. **Remediate** — the rollback planner emits typed actions (env, PATH, packages, services,
-   startup, tasks, config restore) plus manual steps. Preconditions are checked against
-   current state. Dry run is the default. Apply requires `--yes` and takes a full safety
-   snapshot first. `undo` inverts the plan.
-5. **Package** — a single offline HTML file with inline CSS/JS/JSON and redaction. The
-   dashboard uses the same case data for interactive investigation.
-
-The UI is a React 19 + Vite single-file bundle served by a local Node HTTP server. It is
-not a cloud service and does not need a separate web server.
-
-## Dashboard
-
-```powershell
-.\bin\evd.cmd ui --demo
-# or serve an existing store:
-.\bin\evd.cmd ui --port 4317
+```sh
+evd init --store ./.envidence
 ```
 
-- Binds to `127.0.0.1` only.
-- Generates a random per-session token and puts it in the URL fragment, never in a query
-  string or server log.
-- The UI sends the token in an `X-Envidence-Token` header. API requests without it get
-  `401`.
-- POST requests require a same-origin `Origin` header.
-- CSP, frame denial, no-sniff, no-referrer, path-traversal protection, and no directory
-  listings are enabled.
-- The dashboard is for investigation: rollback plans can be previewed and **simulated**,
-  but real apply is intentionally a CLI action. The server exposes a guarded apply
-  endpoint for API users; it requires a plan created in the same session, the literal
-  confirmation `rollback`, a same-origin POST, and a safety snapshot.
+The store contains environment values, command output, paths, and machine history. Treat it as sensitive local data. The [privacy guide](https://envidence.prasant.dev/docs/privacy/) explains retention and deletion.
 
-The dashboard pages are Timeline, Case File (findings, all changes, timeline,
-remediation, raw evidence), Runs, Baselines, and Settings. The case file can be exported
-directly from the UI with standard or strict redaction.
+## Platform support
 
-See [Security](docs/SECURITY.md) for the threat model.
+Windows 10 and 11 have the full collector set. macOS and Linux have a smaller fallback set for host, environment, PATH, packages, network, and project metadata. Some Windows-only features, including services, scheduled tasks, hotfixes, WSL, and machine-scope rollback, are limited or unavailable.
 
-## Report and redaction
-
-```powershell
-.\bin\evd.cmd report --case CASE-20261023-7F3A --out evd-case.html
-.\bin\evd.cmd report --case CASE-... --redact strict --open
-```
-
-| Level | Behavior |
-|---|---|
-| `standard` (default) | Home → `~`; project paths shortened; host/user placeholder; secrets redacted; public-ish IPs removed |
-| `strict` | Also removes project/branch/commit and service identifiers |
-| `none` | Local viewing only; unredacted paths and hosts, with a visible warning |
-
-Even at `none`, env values marked secret are replaced with `<redacted>`, and secret-like
-tokens found in config text or URLs are stripped. A report over 3 MB produces a warning,
-not a failure. The report has no external scripts, styles, fonts, or images.
-
-Do not attach an unredacted `none` report to a public issue without reviewing it.
-
-## Rollback safety
-
-```powershell
-# Default: plan only, no mutations.
-.\bin\evd.cmd rollback --case CASE-... --dry-run --script rollback.ps1
-
-# Real apply: explicit, interactive confirmation, full safety snapshot first.
-.\bin\evd.cmd rollback --case CASE-... --apply
-
-# Invert the last applied rollback.
-.\bin\evd.cmd undo
-```
-
-Apply:
-
-- refuses if preconditions no longer match the plan;
-- takes a full snapshot with trigger `pre_rollback` and pins it;
-- writes a `rollbacks` audit record with per-action results;
-- tells you when an action needs an administrator shell or a manual step;
-- never claims an action succeeded if it failed or was skipped.
-
-Tests use `FakeEnvironmentAdapter` and a sandboxed temp config. This machine's real
-environment was not mutated by the test suite or the demo.
-
-## Development
-
-```powershell
-npm install
-npm run typecheck
-npx vitest run
-npm run build
-```
-
-- `npm test` is `vitest run`, but use `npx vitest run` if your npm version mangles
-  forwarded arguments.
-- Tests create temporary stores under `.envidence/vitest-*` and remove them.
-- The demo is fixture-based and deterministic; it never reads the live machine.
-- No global installs and no `npm link` are required.
-
-Project layout:
-
-```text
-bin/                 local evd launchers
-src/cli.ts           commander entry
-src/commands/        CLI commands
-src/collectors/      read-only Windows/POSIX collectors
-src/core/            store, facts, diff, rules, run, report, rollback, adapters
-src/server/          localhost dashboard server and APIs
-src/ui/              React dashboard
-tests/               core, UI server, report, and sandbox rollback tests
-docs/                plan and product/security/privacy documentation
-```
+Node.js 24 or newer is required because the store uses `node:sqlite`.
 
 ## Documentation
 
-- [Deterministic demo](docs/DEMO.md)
-- [Privacy](docs/PRIVACY.md)
-- [Security](docs/SECURITY.md)
-- [Limitations](docs/LIMITATIONS.md)
-- [Changelog](CHANGELOG.md)
+- [Documentation site](https://envidence.prasant.dev/docs/)
+- [Getting started](https://envidence.prasant.dev/docs/getting-started/)
+- [Command reference](https://envidence.prasant.dev/docs/commands/)
+- [Dashboard](https://envidence.prasant.dev/docs/dashboard/)
+- [Reports](https://envidence.prasant.dev/docs/reports/)
+- [Rollback safety](https://envidence.prasant.dev/docs/rollback/)
+- [Privacy](https://envidence.prasant.dev/docs/privacy/)
+- [Security](https://envidence.prasant.dev/docs/security/)
+- [Limitations](https://envidence.prasant.dev/docs/limitations/)
+- [Changelog](https://github.com/theprasant/envidence/blob/main/CHANGELOG.md)
+
+## Issues
+
+Report bugs and request features at [github.com/theprasant/envidence/issues](https://github.com/theprasant/envidence/issues).
+
+For security-sensitive reports, read the [security guide](https://envidence.prasant.dev/docs/security/) first and do not attach an unredacted store or report to a public issue.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/theprasant/envidence/blob/main/LICENSE).

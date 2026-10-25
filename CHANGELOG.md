@@ -2,30 +2,35 @@
 
 All notable changes to Envidence are recorded here.
 
+## 1.0.1 - 2026-10-26
+
+Documentation and package metadata update.
+
+- Rewrote the README and user guides around installation, daily use, safety, and limits.
+- Added repository and issue links to the package metadata.
+- Clarified dashboard rollback behavior and how to apply a plan.
+- Clarified that real rollback apply and undo have not been validated on a real machine.
+
+No command behavior changed.
+
 ## 1.0.0 - 2026-10-25
 
-First public npm release.
+Initial release.
 
-- Published the `envidence` package with the `envidence` and `evd` CLI entry points.
-- Added an explicit npm file allowlist so the package contains the compiled CLI/server,
-  single-file dashboard, launchers, and user-facing documentation without tests or build
-  configuration.
-- Added `prepack` and `prepublishOnly` release checks so a published tarball is always built
-  and tested from the current source.
-- Added npm metadata and public package metadata.
-- Added Windows CI for clean install, typecheck, tests, build, and package dry-run.
-- Documented npm installation, `npx` usage, and the public 1.0.0 support status.
+- Local snapshot store for the machine layer Git does not track.
+- `evd init`, `evd snap`, `evd diff`, `evd log`, and `evd fingerprint`.
+- `evd watch` for recording a command window and explaining failures.
+- Ranked change hypotheses with case files and known-good baselines.
+- Self-contained HTML reports with standard, strict, and none redaction levels.
+- Local dashboard with session-token protection and rollback previews.
+- Rollback plans, generated scripts, confirmation-gated apply, and `evd undo`.
+- Store diagnostics, configuration commands, and protected pruning.
+- Full Windows 10 and 11 collector set, with a smaller POSIX fallback.
 
-### Known limitations
+### Notes
 
-- Windows 10/11 is the primary supported platform. macOS/Linux use a smaller POSIX
-  collector set.
 - Node.js 24 or newer is required.
-- Automated rollback tests use a fake environment adapter and a sandboxed config. Real
-  machine apply/undo is not validated by the test suite. Use `--dry-run` and review the plan
-  before applying changes.
-- The dashboard is local-only, loopback-bound, and token-protected. There is no remote or
-  multi-user access.
-- No telemetry, cloud dependency, account, or LLM integration is included.
+- Windows has the broadest collector and rollback coverage.
+- Real rollback apply and undo have not been validated on a real machine. Use a dry run and test on a disposable machine before relying on them.
 
-See [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for the complete list.
+See [Limitations](docs/LIMITATIONS.md) for the complete list.

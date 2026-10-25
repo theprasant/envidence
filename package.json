@@ -1,15 +1,19 @@
 {
   "name": "envidence",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "Prasant",
     "url": "https://envidence.prasant.dev/",
     "email": "developer.prasant@gmail.com"
   },
-  "description": "The black box for your dev machine. Snapshot the machine layer Git ignores, find out what changed, and put it back.",
+  "description": "Snapshot the machine layer Git ignores, find out what changed when a command fails, and review a reversible plan.",
   "homepage": "https://envidence.prasant.dev/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theprasant/envidence.git"
+  },
   "bugs": {
-    "email": "developer.prasant@gmail.com"
+    "url": "https://github.com/theprasant/envidence/issues"
   },
   "keywords": [
     "environment",
