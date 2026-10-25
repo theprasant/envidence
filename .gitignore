@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.envidence/
+coverage/
+test-results/
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+docs/INFO.md
